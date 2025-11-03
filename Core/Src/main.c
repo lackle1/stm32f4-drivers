@@ -114,14 +114,20 @@ int main(void)
 
   //HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
 
-  // uint8_t data[4] = { 0, 1, 1, 0};
+  uint8_t data[8] = { 0, 1, 2, 3, 4, 5, 6, 7};
+  uint8_t zeroes[8];
+  memset(zeroes, 0, sizeof(zeroes));
 
-  // I2C_TypeDef *i2c = I2C1;
-  // I2C_config(i2c);
+  I2C_TypeDef *i2c = I2C1;
+  I2C_reset(i2c);
+  I2C_config(i2c);
 
-  // EEPROM_write(i2c, 1, data, 4);
-  // data[1] = 3;
-  // EEPROM_read(i2c, 1, data, 4);
+  EEPROM_write(i2c, 0, data, 8);
+  HAL_Delay(500);
+  //for (volatile int i = 0; i < 1000000; i++); // ~5-10ms delay
+
+  EEPROM_read(i2c, 0, zeroes, 8);
+
   ts time;
   time.secs = 0;
   time.mins = 44;
@@ -132,6 +138,7 @@ int main(void)
   time.day = Friday;
   time.isDst = 1;
   RTC_init(&time);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
