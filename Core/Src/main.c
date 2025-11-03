@@ -123,9 +123,6 @@ int main(void)
   I2C_config(i2c);
 
   EEPROM_write(i2c, 0, data, 8);
-  HAL_Delay(500);
-  //for (volatile int i = 0; i < 1000000; i++); // ~5-10ms delay
-
   EEPROM_read(i2c, 0, zeroes, 8);
 
   ts time;
