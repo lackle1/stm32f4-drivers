@@ -35,8 +35,8 @@ void RTC_init(ts *ts) {
     RCC->BDCR |= RCC_BDCR_RTCEN;
     
     // Unlock write protection
-    RTC->WPR = 0xCAU;
-    RTC->WPR = 0x53U;
+    RTC->WPR = 0xCA;
+    RTC->WPR = 0x53;
 
     /*  Initialise
     * 1. Unlock write protection
@@ -56,18 +56,18 @@ void RTC_init(ts *ts) {
     while ((RTC->ISR & RTC_ISR_INITF) == 0);
 
     // Set sync prescaler then async prescaler (manual specifically says in this order)
-    RTC->PRER |= 256 << RTC_PRER_PREDIV_S_Pos;
-    RTC->PRER |= 128 << RTC_PRER_PREDIV_A_Pos;
+    RTC->PRER |= 255 << RTC_PRER_PREDIV_S_Pos;
+    RTC->PRER |= 127 << RTC_PRER_PREDIV_A_Pos;
 
     // Load initial time and date values in the shadow registers and configure time mode (12h or 24h)
     RTC->CR &= ~RTC_CR_FMT;     // Set to 24h format (0 is the reset value anyway, but doing this just in case)
-    //RTC_setTime(ts);
+    RTC_setTime(ts);
 
     // Exit initialisation mode
     RTC->ISR &= ~RTC_ISR_INIT;
 
     // Wait for synchronisation
-    while((RTC->ISR &RTC_ISR_INITF)==RTC_ISR_INITF);
+    while((RTC->ISR & RTC_ISR_INITF) != 0);
 
     // Enable write protection
     RTC->WPR = 1;   // Can be any value other than the keys
@@ -79,18 +79,18 @@ void RTC_init(ts *ts) {
 void RTC_setTime(ts *ts) {
 
     /*Enable Backup access to config RTC*/
-	PWR->CR |=PWR_CR_DBP;
+	// PWR->CR |= PWR_CR_DBP;
 
-	/*Disable RTC registers write protection*/
-	RTC->WPR = 0xCAU;
-	RTC->WPR = 0x53U;
+	// /*Disable RTC registers write protection*/
+	// RTC->WPR = 0xCA;
+	// RTC->WPR = 0x53;
 
 
-	/*Start init mode*/
-	RTC->ISR |= RTC_ISR_INIT;
+	// /*Start init mode*/
+	// RTC->ISR |= RTC_ISR_INIT;
 
-	/*Wait until Initializing mode is active*/
-	while((RTC->ISR & RTC_ISR_INITF)!=RTC_ISR_INITF);
+	// /*Wait until Initializing mode is active*/
+	// while((RTC->ISR & RTC_ISR_INITF) == 0);
 
     uint8_t ht = ts->hours / 10;
     uint8_t hu = ts->hours % 10;
@@ -107,16 +107,30 @@ void RTC_setTime(ts *ts) {
     RTC->TR |= st << RTC_TR_ST_Pos;
     RTC->TR |= su << RTC_TR_SU_Pos;
 
-    RTC->DR = 100;
+    uint8_t yt = (ts->year - 2000) / 10;
+    uint8_t yu = (ts->year - 2000) % 10;
+    uint8_t dayOfWk = ts->dayOfWk;
+    uint8_t mt = ts->month / 10;
+    uint8_t mu = ts->month % 10;
+    uint8_t dt = ts->date / 10;
+    uint8_t du = ts->date % 10;
+
+    RTC->DR |= yt << RTC_DR_YT_Pos;
+    RTC->DR |= yu << RTC_DR_YU_Pos;
+    RTC->DR |= dayOfWk << RTC_DR_WDU_Pos;
+    RTC->DR |= mt << RTC_DR_MT_Pos;
+    RTC->DR |= mu << RTC_DR_MU_Pos;
+    RTC->DR |= dt << RTC_DR_DT_Pos;
+    RTC->DR |= du << RTC_DR_DU_Pos;
 
     /*Exit the initialization mode*/
-	RTC->ISR&=~RTC_ISR_INIT;
+	// RTC->ISR&=~RTC_ISR_INIT;
 
-	/*Wait for synchro*/
-	while((RTC->ISR &RTC_ISR_INITF)==RTC_ISR_INITF);
+	// /*Wait for synchronisation*/
+	// while((RTC->ISR & RTC_ISR_INITF) != 0);
 
-	/*Enable RTC registers write protection*/
-	RTC->WPR = 0xFF;
+	// /*Enable RTC registers write protection*/
+	// RTC->WPR = 0xFF;
 }
 
 void RTC_getTime(ts *ts) {
@@ -133,5 +147,16 @@ void RTC_getTime(ts *ts) {
     ts->mins = mnt * 10 + mnu;
     ts->secs = st * 10 + su;
 
-    (void)(RTC->DR);
+    uint8_t yt = (RTC->DR & RTC_DR_YT) >> RTC_DR_YT_Pos;
+    uint8_t yu = (RTC->DR & RTC_DR_YU) >> RTC_DR_YU_Pos;
+    uint8_t dayOfWk = (RTC->DR & RTC_DR_WDU) >> RTC_DR_WDU_Pos;
+    uint8_t mt = (RTC->DR & RTC_DR_MT) >> RTC_DR_MT_Pos;
+    uint8_t mu = (RTC->DR & RTC_DR_MU) >> RTC_DR_MU_Pos;
+    uint8_t dt = (RTC->DR & RTC_DR_DT) >> RTC_DR_DT_Pos;
+    uint8_t du = (RTC->DR & RTC_DR_DU) >> RTC_DR_DU_Pos;
+
+    ts->year = yt * 10 + yu;
+    ts->dayOfWk = dayOfWk;
+    ts->month = mt * 10 + mu;
+    ts->date = dt * 10 + du;
 }
