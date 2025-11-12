@@ -20,6 +20,13 @@ void RTC_init(ts *ts) {
     // Enable access to PWR
     RCC->APB1ENR |= RCC_APB1ENR_PWREN;
 
+    // Delay 5 cycles to ensure peripheral is enabled
+    __ASM("NOP");
+    __ASM("NOP");
+    __ASM("NOP");
+    __ASM("NOP");
+    __ASM("NOP");
+
     // Enable write access to backup domain
     PWR->CR |= PWR_CR_DBP;
 

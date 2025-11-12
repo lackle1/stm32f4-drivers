@@ -22,7 +22,7 @@
 #include "stdint.h"
 
 #include "i2c.h"
-#include "eeprom.h"
+#include "cat24c32.h"
 #include "rtc.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -114,16 +114,20 @@ int main(void)
 
   //HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
 
-  // uint8_t data[8] = { 0, 1, 2, 3, 4, 5, 6, 7};
-  // uint8_t zeroes[8];
-  // memset(zeroes, 0, sizeof(zeroes));
+  initCAT24C32();
 
-  // I2C_TypeDef *i2c = I2C1;
-  // I2C_reset(i2c);
-  // I2C_config(i2c);
+  uint8_t data[8] = { 0, 1, 2, 3, 4, 5, 6, 7};
+  uint8_t more_data[8];
+  memset(more_data, 0, sizeof(more_data));
 
-  // EEPROM_write(i2c, 0, data, 8);
-  // EEPROM_read(i2c, 0, zeroes, 8);
+  I2C_t i2c = I2C_init(I2C1, NULL);
+
+  CAT24C32_t cat24c32;
+  CAT24C32_Config config = {.address = 0xA0};
+  CAT24C32_init(&cat24c32, &i2c, &config);
+  
+  CAT24C32_write(&cat24c32, 0, data, 8);
+  CAT24C32_read(&cat24c32, 0, more_data, 8);
 
   ts time;
   time.secs = 0;
@@ -143,7 +147,7 @@ int main(void)
   //uint8_t seconds = time.secs;
   while (1)
   {
-    // RTC_setTime(&time);
+    RTC_setTime(&time);
     RTC_getTime(&time);
     HAL_Delay(500);
     if (1) {

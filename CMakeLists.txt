@@ -46,7 +46,7 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     Core/Src/i2c.c
-    Core/Src/eeprom.c
+    Core/Src/cat24c32.c
     Core/Src/rtc.c
 )
 

@@ -1,5 +1,5 @@
-#ifndef RTC_AUS
-#define RTC_AUS
+#ifndef RTC_H
+#define RTC_H
 
 #include "stm32f439xx.h"
 

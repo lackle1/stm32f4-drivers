@@ -7,121 +7,174 @@
  ***********************************************************************************/
 
 #include "i2c.h"
+#include "stdlib.h"
+
+static void _I2C_init(I2C_TypeDef *interface, I2C_Config *config);
 
 /**
  * @brief  Initialises I2C
  *
- * @param  i2c Pointer to the I2C_TypeDef struct representing the I2C interface.
+ * @param  interface    Pointer to the I2C_t struct.
+ * @param  config       Pointer to I2C_Config struct for initial configuration.
+ *                      This may be \c NULL, in which case the default will be used.
+ *
+ * @return Initialised I2C_t struct;
+ **/
+I2C_t I2C_init(I2C_TypeDef *interface, I2C_Config *config) {
+    
+    // Early return error struct if peripheral is null
+    if (interface == NULL)
+        return (I2C_t){.interface = NULL};
+
+    I2C_t i2c = {.interface = interface};
+
+    I2C_updateConfig(&i2c, config);
+
+    i2c.updateConfig = I2C_updateConfig;
+    i2c.read = I2C_read;
+    i2c.write = I2C_write;
+
+    return i2c;
+}
+
+/**
+ * @brief   Updates I2C configuration
+ * @details Uses the config struct to update the I2C registers and resets the peripheral.
+ *          Passing \c NULL uses the default config
+ *
+ * @param  i2c      Pointer to the I2C_t struct.
+ * @param  config   Pointer to config struct
  *
  * @return @c NULL
  **/
-void I2C_config(I2C_TypeDef *i2c) {
+void I2C_updateConfig(I2C_t *i2c, I2C_Config *config) {
 
-    // Enable GPIO and I2C clocks
-    RCC->APB1ENR |= RCC_APB1ENR_I2C1EN;  // I2C
-    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN; // GPIOB
+    // Use default values if config is null
+    if (config == NULL) {
+        config = &I2C_CONFIG_DEFAULT;
+    }
 
-    // Configure pins PB8 and PB9 to use alternate functions
-    GPIOB->MODER |= 2<<GPIO_MODER_MODE8_Pos | 2<<GPIO_MODER_MODE9_Pos;      // Alternative function mode (0b10)
-    GPIOB->OTYPER |= GPIO_OTYPER_OT8 & GPIO_OTYPER_OT9;       // Output open-drain
-    GPIOB->OSPEEDR |= 3<<GPIO_OSPEEDR_OSPEED8_Pos | 3<<GPIO_OSPEEDR_OSPEED9_Pos;    // Highspeed (0b11)
-    GPIOB->PUPDR |= 1<<GPIO_PUPDR_PUPD8_Pos | 1<<GPIO_PUPDR_PUPD9_Pos;      // Set pins to pull-up
+    i2c->config = *config;
 
-    // Configure which alternate function will be used
-    GPIOB->AFR[1] |= 4<<0 | 4<<4;       // Set each to AF4 (I2C)
+    // Initialise I2C registers and enable peripheral
+    _I2C_init(i2c->interface, config);
+}
 
-    // Reset I2C
-    i2c->CR1 |= I2C_CR1_SWRST;
-    i2c->CR1 &= ~I2C_CR1_SWRST;
+/**
+ * @brief  Updates I2C registers and enables the peripheral
+ *
+ * @param  interface Pointer struct representing the I2C interface
+ * @param  config    Pointer to config struct
+ *
+ * @return @c NULL
+ **/
+static void _I2C_init(I2C_TypeDef *interface, I2C_Config *config) {
 
-    i2c->CR2 |= 42;                    // Set frequency to the APB1 frequency (MHz)
+    // Wait until bus is not busy
+    while (interface->SR2 & I2C_SR2_BUSY);
+
+    // Reset I2C (TODO: not 100% sure if this needed)
+    interface->CR1 |= I2C_CR1_SWRST;
+    interface->CR1 &= ~I2C_CR1_SWRST;
+    
+    // Disable I2C
+    interface->CR1 &= ~I2C_CR1_PE;
+
+    // Configure clock frequency
+    interface->CR2 &= ~I2C_CR2_FREQ;
+    interface->CR2 |= config->CLKFREQ << I2C_CR2_FREQ_Pos;
 
     // Configure clock control register
-    //i2c->CCR &= ~(1<<15);            // Standard mode. Not needed because it is set to 0 on reset anyway.
-    i2c->CCR |= 210;                   // Calculated from reference manual. Datasheet values for clock times were missing so I looked at similar boards.
+    interface->CCR &= ~I2C_CCR_FS;
+    interface->CCR |= config->CLKMODE << I2C_CCR_FS_Pos;
+    
+    interface->CCR &= ~I2C_CCR_CCR;
+    interface->CCR |= config->CCR << I2C_CCR_CCR_Pos;
 
-    i2c->TRISE |= 46;                  // Configure TRISE
-    i2c->CR1 |= I2C_CR1_PE;            // Enable peripheral
+    // Configure TRISE
+    interface->TRISE &= ~I2C_TRISE_TRISE;
+    interface->TRISE |= config->TRISE << I2C_TRISE_TRISE_Pos;
+    
+    // Re-enable I2C
+    interface->CR1 |= I2C_CR1_PE;
 }
 
 /**
  * @brief  Resets I2C
  *
- * @param  i2c Pointer to the I2C_TypeDef struct representing the I2C interface.
+ * @param  i2c Pointer to I2C_t struct.
  *
  * @return @c NULL
  **/
-void I2C_reset(I2C_TypeDef *i2c) {
-    i2c->CR1 |= I2C_CR1_SWRST;
-    i2c->CR1 &= ~I2C_CR1_SWRST;
+void I2C_reset(I2C_t *i2c) {
+    i2c->interface->CR1 |= I2C_CR1_SWRST;
+    i2c->interface->CR1 &= ~I2C_CR1_SWRST;
 
-    i2c->CR1 &= ~I2C_CR1_PE;  // Disable
-    i2c->CR1 |= I2C_CR1_PE;   // Re-enable
+    i2c->interface->CR1 &= ~I2C_CR1_PE;  // Disable
+    i2c->interface->CR1 |= I2C_CR1_PE;   // Re-enable
 }
 
 /**
- * @brief  Prepares for  I2C transmission
+ * @brief  Prepares for I2C transmission
  *
- * @param  i2c Pointer to the I2C_TypeDef struct representing the I2C interface.
+ * @param  i2c Pointer to I2C_t struct.
  *
  * @return @c NULL
  **/
-void I2C_start(I2C_TypeDef *i2c) {
-    while (i2c->SR2 & I2C_SR2_BUSY);        // Wait for BUSY bit to clear
+void I2C_start(I2C_t *i2c) {
+    while (i2c->interface->SR2 & I2C_SR2_BUSY);        // Wait for BUSY bit to clear
 
-    i2c->CR1 |= I2C_CR1_ACK;                // Enable ACK
-    i2c->CR1 |= I2C_CR1_START;              // Set START bit
-    while (!(i2c->SR1 & I2C_SR1_SB));       // Wait for the SB bit to be set
+    i2c->interface->CR1 |= I2C_CR1_ACK;                // Enable ACK
+    i2c->interface->CR1 |= I2C_CR1_START;              // Set START bit
+    while (!(i2c->interface->SR1 & I2C_SR1_SB));       // Wait for the SB bit to be set
 }
 
 /**
  * @brief  Sets the 7-bit address of the slave
  *
- * @param  i2c  Pointer to the I2C_TypeDef struct representing the I2C interface.
+ * @param  i2c  Pointer to I2C_t struct.
  * @param  addr Device address
  *  
  * @return @c NULL
  **/
-void I2C_sendAddress(I2C_TypeDef *i2c, uint8_t addr) {
-    i2c->DR = addr;
-    while (!(i2c->SR1 & I2C_SR1_ADDR));     // Wait for ADDR bit to be set
-    (void)(i2c->SR1 | i2c->SR2);            // Read status registers to clear ADDR
+void I2C_sendAddress(I2C_t *i2c, uint8_t addr) {
+    i2c->interface->DR = addr;
+    while (!(i2c->interface->SR1 & I2C_SR1_ADDR));     // Wait for ADDR bit to be set
+    (void)(i2c->interface->SR1 | i2c->interface->SR2);            // Read status registers to clear ADDR
 }
 
 /**
  * @brief  Stops transmission
  *
- * @param  i2c  Pointer to the I2C_TypeDef struct representing the I2C interface.
+ * @param  i2c  Pointer to I2C_t struct.
  *  
  * @return @c NULL
  **/
-void I2C_stop(I2C_TypeDef *i2c) {
-    i2c->CR1 |= I2C_CR1_STOP;           // Sets stop bit
-
+void I2C_stop(I2C_t *i2c) {
+    i2c->interface->CR1 |= I2C_CR1_STOP;           // Sets stop bit
 }
 
 /**
  * @brief  Starts I2C and returns once the device ACKs the address
  *
- * @param  i2c Pointer to the I2C_TypeDef struct representing the I2C interface.
+ * @param  i2c  Pointer to the I2C_t struct.
  * @param  addr Device address
  *
  * @return @c NULL
  **/
-void I2C_waitUntilReady(I2C_TypeDef *i2c, uint8_t addr) {
-
+void I2C_waitUntilReady(I2C_t *i2c, uint8_t addr) {
     while (1) {
         I2C_start(i2c);
-        i2c->DR = addr;
+        i2c->interface->DR = addr;
 
-        while (!(i2c->SR1 & (I2C_SR1_ADDR | I2C_SR1_AF)));  // Wait for either ACK or NACK
+        while (!(i2c->interface->SR1 & (I2C_SR1_ADDR | I2C_SR1_AF)));  // Wait for either ACK or NACK
 
-        if (i2c->SR1 & I2C_SR1_ADDR) {
-            (void)(i2c->SR1 | i2c->SR2);            // Read status registers to clear ADDR
+        if (i2c->interface->SR1 & I2C_SR1_ADDR) {
+            (void)(i2c->interface->SR1 | i2c->interface->SR2);            // Read status registers to clear ADDR
             return;
         }
         else {
-            i2c->SR1 &= ~I2C_SR1_AF;
+            i2c->interface->SR1 &= ~I2C_SR1_AF;
             I2C_stop(i2c);
         }
     }
@@ -130,61 +183,60 @@ void I2C_waitUntilReady(I2C_TypeDef *i2c, uint8_t addr) {
 /**
  * @brief  Sends data to the device at the address
  *
- * @param  i2c  Pointer to the I2C_TypeDef struct representing the I2C interface.
+ * @param  i2c  Pointer to I2C_t struct.
  * @param  addr Device address
  * @param  data Pointer to the beginning of the data
  * @param  size Number of bytes to be sent
  *  
  * @return @c NULL
  **/
-void I2C_write(I2C_TypeDef *i2c, uint8_t addr, uint8_t *data, uint8_t size) {
-
+void I2C_write(I2C_t *i2c, uint8_t addr, uint8_t *data, uint8_t size) {
     for (int i = 0; i < size; i++) {
-        while (!(i2c->SR1 & I2C_SR1_TXE));    // Wait for TxE bit to be set (data register empty)
-        i2c->DR = data[i];
+        while (!(i2c->interface->SR1 & I2C_SR1_TXE));    // Wait for TxE bit to be set (data register empty)
+        i2c->interface->DR = data[i];
     }
 
-    while (!(i2c->SR1 & I2C_SR1_BTF));        // Wait for BTF to be set (byte transfer finished)
+    while (!(i2c->interface->SR1 & I2C_SR1_BTF));        // Wait for BTF to be set (byte transfer finished)
 }
 
 /**
  * @brief  Reads data into a buffer
  *
- * @param  i2c  Pointer to the I2C_TypeDef struct representing the I2C interface
+ * @param  i2c  Pointer to I2C_t struct representing the I2C i2c->interface
  * @param  addr Device address
  * @param  buf  Buffer where the data will be written
  * @param  size Numbe of bytes to be read
  *  
  * @return @c NULL
  **/
-void I2C_read(I2C_TypeDef *i2c, uint8_t addr, uint8_t *buf, uint8_t size) {
+void I2C_read(I2C_t *i2c, uint8_t addr, uint8_t *buf, uint8_t size) {
 
     if (size == 1) {
         
-        i2c->CR1 &= ~(I2C_CR1_ACK);                     // Disable ACK
-        i2c->CR1 |= I2C_CR1_POS;                        // Set POS bit
+        i2c->interface->CR1 &= ~(I2C_CR1_ACK);                     // Disable ACK
+        i2c->interface->CR1 |= I2C_CR1_POS;                        // Set POS bit
         
-        I2C_stop(i2c);                                  // STOP
+        I2C_stop(i2c);                                             // STOP
 
-        while (!(i2c->SR1 & I2C_SR1_RXNE));             // Wait until RxNE is set (data register not empty)
-        buf[0] = i2c->DR;
+        while (!(i2c->interface->SR1 & I2C_SR1_RXNE));             // Wait until RxNE is set (data register not empty)
+        buf[0] = i2c->interface->DR;
     }
     else {
         for (int i = 0; i < size - 2; i++) {
-            while (!(i2c->SR1 & I2C_SR1_RXNE));         // Wait until RxNE is set (data register not empty)
-            buf[i] = i2c->DR;
-            i2c->CR1 |= I2C_CR1_ACK;                    // Enable ACK (to acknowledge data has been received)
+            while (!(i2c->interface->SR1 & I2C_SR1_RXNE));         // Wait until RxNE is set (data register not empty)
+            buf[i] = i2c->interface->DR;
+            i2c->interface->CR1 |= I2C_CR1_ACK;                    // Enable ACK (to acknowledge data has been received)
         }
 
         // Read second last byte
-        while (!(i2c->SR1 & I2C_SR1_RXNE));             // Wait until RxNE is set (data register not empty)
-        buf[size - 2] = i2c->DR;
+        while (!(i2c->interface->SR1 & I2C_SR1_RXNE));             // Wait until RxNE is set (data register not empty)
+        buf[size - 2] = i2c->interface->DR;
 
-        i2c->CR1 &= ~I2C_CR1_ACK;                       // Disable ACK
+        i2c->interface->CR1 &= ~I2C_CR1_ACK;                       // Disable ACK
         I2C_stop(i2c);
 
         // Read last byte
-        while (!(i2c->SR1 & I2C_SR1_RXNE));             // Wait until RxNE is set (data register not empty)
-        buf[size - 1] = i2c->DR;
+        while (!(i2c->interface->SR1 & I2C_SR1_RXNE));             // Wait until RxNE is set (data register not empty)
+        buf[size - 1] = i2c->interface->DR;
     }
 }
