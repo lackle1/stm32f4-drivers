@@ -75,7 +75,7 @@ bool CAT24C32_updateConfig(CAT24C32_t *cat24c32, CAT24C32_Config *config) {
  **/
 void CAT24C32_write(CAT24C32_t *cat24c32, uint16_t page, uint8_t *data, size_t size) {
 
-    I2C_waitUntilReady(&cat24c32->i2c, cat24c32->config.address & 0xFE);     // LSB cleared to select write mode
+    while (!(I2C_pollAck(&cat24c32->i2c, cat24c32->config.address & 0xFE)));     // LSB cleared to select write mode
 
     // Send address of memory location within the CAT24C32 device
     uint8_t addr[2];

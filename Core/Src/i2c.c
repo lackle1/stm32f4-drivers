@@ -181,6 +181,35 @@ void I2C_waitUntilReady(I2C_t *i2c, uint8_t addr) {
 }
 
 /**
+ * @brief   Checks if device acknowledges the address.
+ * @details The communication is only stopped if the device NACKs, so the I2C does not need to be started again if the function returns true.
+ *
+ * @param  i2c  Pointer to the I2C_t struct.
+ * @param  addr Device address.
+ *
+ * @return True if the device ACKs, false if not.
+ **/
+bool I2C_pollAck(I2C_t *i2c, uint8_t addr) {
+    
+    // Start and send address
+    I2C_start(i2c);
+    i2c->interface->DR = addr;
+
+    while (!(i2c->interface->SR1 & (I2C_SR1_ADDR | I2C_SR1_AF)));  // Wait for either ACK or NACK
+    // bool receivedAck = (i2c->interface->SR1 & I2C_SR1_ADDR) ? true : false;
+
+    if (i2c->interface->SR1 & I2C_SR1_ADDR) {
+        (void)(i2c->interface->SR1 | i2c->interface->SR2);         // Read status registers to clear ADDR
+        return true;
+    }
+    else {
+        i2c->interface->SR1 &= ~I2C_SR1_AF;
+        I2C_stop(i2c);
+        return false;
+    }
+}
+
+/**
  * @brief  Sends data to the device at the address
  *
  * @param  i2c  Pointer to I2C_t struct.
