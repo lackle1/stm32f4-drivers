@@ -81,35 +81,21 @@ void CAT24C32_write(CAT24C32_t *cat24c32, uint16_t page, uint8_t *data, size_t s
     uint8_t addr[2];
     addr[0] = page >> 8;    // Higher byte
     addr[1] = page;         // Lower byte
-    I2C_write(&cat24c32->i2c, cat24c32->config.address, addr, 2);
+    cat24c32->i2c.write(&cat24c32->i2c, cat24c32->config.address, addr, 2, I2C_TRANSACTION_CONTINUE);
 
     // Send the data we want to write
-    I2C_write(&cat24c32->i2c, cat24c32->config.address, data, size);
-
-    I2C_stop(&cat24c32->i2c);
+    cat24c32->i2c.write(&cat24c32->i2c, cat24c32->config.address, data, size, I2C_TRANSACTION_STOP);
 }
 
 void CAT24C32_read(CAT24C32_t *cat24c32, uint16_t page, uint8_t *data, size_t size) {
 
-    I2C_waitUntilReady(&cat24c32->i2c, CAT24C32_ADDRESS);
+    while (!(I2C_pollAck(&cat24c32->i2c, cat24c32->config.address & 0xFE)));     // LSB cleared to select write mode while we send address
 
     // Send address of memory location within the CAT24C32 device
     uint8_t addr[2];
     addr[0] = page >> 8;    // Higher byte
     addr[1] = page;         // Lower byte
-    I2C_write(&cat24c32->i2c, cat24c32->config.address, addr, 2);
+    cat24c32->i2c.write(&cat24c32->i2c, cat24c32->config.address, addr, 2, I2C_TRANSACTION_STOP);
 
-    // Restart and set to read mode
-    I2C_stop(&cat24c32->i2c);
-    I2C_start(&cat24c32->i2c);
-    I2C_sendAddress(&cat24c32->i2c, cat24c32->config.address | 0x01);  // LSB set to select read mode
-
-    if (size == 1) {
-        I2C_readByte(&cat24c32->i2c, CAT24C32_ADDRESS, data);
-    }
-    else {
-        I2C_readBytes(&cat24c32->i2c, CAT24C32_ADDRESS, data, size);
-    }
-
-    I2C_stop(&cat24c32->i2c);
+    cat24c32->i2c.read(&cat24c32->i2c, cat24c32->config.address | 0x01, data, size);
 }

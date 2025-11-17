@@ -127,6 +127,9 @@ int main(void)
   CAT24C32_init(&cat24c32, &i2c, &config);
   
   CAT24C32_write(&cat24c32, 0, data, 8);
+  CAT24C32_read(&cat24c32, 0, data, 8);
+  
+  CAT24C32_write(&cat24c32, 0, data, 8);
   CAT24C32_read(&cat24c32, 0, more_data, 8);
 
   ts time;

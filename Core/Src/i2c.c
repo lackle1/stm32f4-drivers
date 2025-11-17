@@ -155,32 +155,6 @@ void I2C_stop(I2C_t *i2c) {
 }
 
 /**
- * @brief  Starts I2C and returns once the device ACKs the address
- *
- * @param  i2c  Pointer to the I2C_t struct.
- * @param  addr Device address
- *
- * @return @c NULL
- **/
-void I2C_waitUntilReady(I2C_t *i2c, uint8_t addr) {
-    while (1) {
-        I2C_start(i2c);
-        i2c->interface->DR = addr;
-
-        while (!(i2c->interface->SR1 & (I2C_SR1_ADDR | I2C_SR1_AF)));  // Wait for either ACK or NACK
-
-        if (i2c->interface->SR1 & I2C_SR1_ADDR) {
-            (void)(i2c->interface->SR1 | i2c->interface->SR2);            // Read status registers to clear ADDR
-            return;
-        }
-        else {
-            i2c->interface->SR1 &= ~I2C_SR1_AF;
-            I2C_stop(i2c);
-        }
-    }
-}
-
-/**
  * @brief   Checks if device acknowledges the address.
  * @details The communication is only stopped if the device NACKs, so the I2C does not need to be started again if the function returns true.
  *
@@ -219,25 +193,52 @@ bool I2C_pollAck(I2C_t *i2c, uint8_t addr) {
  *  
  * @return @c NULL
  **/
-void I2C_write(I2C_t *i2c, uint8_t addr, uint8_t *data, uint8_t size) {
+void I2C_write(I2C_t *i2c, uint8_t addr, uint8_t *data, uint8_t size, bool stop) {
+
     for (int i = 0; i < size; i++) {
         while (!(i2c->interface->SR1 & I2C_SR1_TXE));    // Wait for TxE bit to be set (data register empty)
         i2c->interface->DR = data[i];
     }
 
     while (!(i2c->interface->SR1 & I2C_SR1_BTF));        // Wait for BTF to be set (byte transfer finished)
+
+    if (stop) {
+        I2C_stop(i2c);
+    }
 }
 
 /**
- * @brief  Reads a singular byte
+ * @brief  Reads from I2C device. Also stops the transaction.
  *
  * @param  i2c  Pointer to I2C_t struct representing the I2C i2c->interface
  * @param  addr Device address
  * @param  buf  Buffer where the data will be written
+ * @param  size Number of bytes to be read
  *  
  * @return @c NULL
  **/
-void I2C_readByte(I2C_t *i2c, uint8_t addr, uint8_t *buf) {
+void I2C_read(I2C_t *i2c, uint8_t deviceAddr, uint8_t *buf, uint8_t size) {
+
+    I2C_start(i2c);
+    I2C_sendAddress(i2c, deviceAddr);     // LSB set to select read mode
+    
+    if (size == 1) {
+        I2C_readByte(i2c, buf);
+    }
+    else {
+        I2C_readBytes(i2c, buf, size);
+    }
+}
+
+/**
+ * @brief  Reads a singular byte. Also stops the transaction.
+ *
+ * @param  i2c  Pointer to I2C_t struct representing the I2C i2c->interface
+ * @param  buf  Buffer where the data will be written
+ *  
+ * @return @c NULL
+ **/
+void I2C_readByte(I2C_t *i2c, uint8_t *buf) {
 
     i2c->interface->CR1 &= ~(I2C_CR1_ACK);                     // Disable ACK
     i2c->interface->CR1 |= I2C_CR1_POS;                        // Set POS bit
@@ -249,16 +250,15 @@ void I2C_readByte(I2C_t *i2c, uint8_t addr, uint8_t *buf) {
 }
 
 /**
- * @brief  Reads a singular byte
+ * @brief  Reads a singular byte. Also stops the transaction.
  *
  * @param  i2c  Pointer to I2C_t struct representing the I2C i2c->interface
- * @param  addr Device address
  * @param  buf  Buffer where the data will be written
  * @param  size Number of bytes to be read
  *  
  * @return @c NULL
  **/
-void I2C_readBytes(I2C_t *i2c, uint8_t addr, uint8_t *buf, uint8_t size) {
+void I2C_readBytes(I2C_t *i2c, uint8_t *buf, uint8_t size) {
 
     for (int i = 0; i < size - 2; i++) {
         while (!(i2c->interface->SR1 & I2C_SR1_RXNE));         // Wait until RxNE is set (data register not empty)
