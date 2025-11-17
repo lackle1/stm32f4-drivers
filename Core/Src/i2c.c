@@ -229,43 +229,51 @@ void I2C_write(I2C_t *i2c, uint8_t addr, uint8_t *data, uint8_t size) {
 }
 
 /**
- * @brief  Reads data into a buffer
+ * @brief  Reads a singular byte
  *
  * @param  i2c  Pointer to I2C_t struct representing the I2C i2c->interface
  * @param  addr Device address
  * @param  buf  Buffer where the data will be written
- * @param  size Numbe of bytes to be read
  *  
  * @return @c NULL
  **/
-void I2C_read(I2C_t *i2c, uint8_t addr, uint8_t *buf, uint8_t size) {
+void I2C_readByte(I2C_t *i2c, uint8_t addr, uint8_t *buf) {
 
-    if (size == 1) {
-        
-        i2c->interface->CR1 &= ~(I2C_CR1_ACK);                     // Disable ACK
-        i2c->interface->CR1 |= I2C_CR1_POS;                        // Set POS bit
-        
-        I2C_stop(i2c);                                             // STOP
+    i2c->interface->CR1 &= ~(I2C_CR1_ACK);                     // Disable ACK
+    i2c->interface->CR1 |= I2C_CR1_POS;                        // Set POS bit
+    
+    I2C_stop(i2c);                                             // STOP
 
-        while (!(i2c->interface->SR1 & I2C_SR1_RXNE));             // Wait until RxNE is set (data register not empty)
-        buf[0] = i2c->interface->DR;
+    while (!(i2c->interface->SR1 & I2C_SR1_RXNE));             // Wait until RxNE is set (data register not empty)
+    buf[0] = i2c->interface->DR;
+}
+
+/**
+ * @brief  Reads a singular byte
+ *
+ * @param  i2c  Pointer to I2C_t struct representing the I2C i2c->interface
+ * @param  addr Device address
+ * @param  buf  Buffer where the data will be written
+ * @param  size Number of bytes to be read
+ *  
+ * @return @c NULL
+ **/
+void I2C_readBytes(I2C_t *i2c, uint8_t addr, uint8_t *buf, uint8_t size) {
+
+    for (int i = 0; i < size - 2; i++) {
+        while (!(i2c->interface->SR1 & I2C_SR1_RXNE));         // Wait until RxNE is set (data register not empty)
+        buf[i] = i2c->interface->DR;
+        i2c->interface->CR1 |= I2C_CR1_ACK;                    // Enable ACK (to acknowledge data has been received)
     }
-    else {
-        for (int i = 0; i < size - 2; i++) {
-            while (!(i2c->interface->SR1 & I2C_SR1_RXNE));         // Wait until RxNE is set (data register not empty)
-            buf[i] = i2c->interface->DR;
-            i2c->interface->CR1 |= I2C_CR1_ACK;                    // Enable ACK (to acknowledge data has been received)
-        }
 
-        // Read second last byte
-        while (!(i2c->interface->SR1 & I2C_SR1_RXNE));             // Wait until RxNE is set (data register not empty)
-        buf[size - 2] = i2c->interface->DR;
+    // Read second last byte
+    while (!(i2c->interface->SR1 & I2C_SR1_RXNE));             // Wait until RxNE is set (data register not empty)
+    buf[size - 2] = i2c->interface->DR;
 
-        i2c->interface->CR1 &= ~I2C_CR1_ACK;                       // Disable ACK
-        I2C_stop(i2c);
+    i2c->interface->CR1 &= ~I2C_CR1_ACK;                       // Disable ACK
+    I2C_stop(i2c);
 
-        // Read last byte
-        while (!(i2c->interface->SR1 & I2C_SR1_RXNE));             // Wait until RxNE is set (data register not empty)
-        buf[size - 1] = i2c->interface->DR;
-    }
+    // Read last byte
+    while (!(i2c->interface->SR1 & I2C_SR1_RXNE));             // Wait until RxNE is set (data register not empty)
+    buf[size - 1] = i2c->interface->DR;
 }

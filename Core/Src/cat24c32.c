@@ -104,7 +104,12 @@ void CAT24C32_read(CAT24C32_t *cat24c32, uint16_t page, uint8_t *data, size_t si
     I2C_start(&cat24c32->i2c);
     I2C_sendAddress(&cat24c32->i2c, cat24c32->config.address | 0x01);  // LSB set to select read mode
 
-    I2C_read(&cat24c32->i2c, CAT24C32_ADDRESS, data, size);
+    if (size == 1) {
+        I2C_readByte(&cat24c32->i2c, CAT24C32_ADDRESS, data);
+    }
+    else {
+        I2C_readBytes(&cat24c32->i2c, CAT24C32_ADDRESS, data, size);
+    }
 
     I2C_stop(&cat24c32->i2c);
 }
