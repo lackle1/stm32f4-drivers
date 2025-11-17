@@ -142,7 +142,7 @@ int main(void)
   time.dayOfWk = Friday;
   time.isDst = 1;
   RTC_init(&time);
-
+  memset(&time, 0, sizeof(time));
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -150,7 +150,6 @@ int main(void)
   //uint8_t seconds = time.secs;
   while (1)
   {
-    RTC_setTime(&time);
     RTC_getTime(&time);
     HAL_Delay(500);
     if (1) {

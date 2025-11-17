@@ -85,20 +85,6 @@ void RTC_init(ts *ts) {
 
 void RTC_setTime(ts *ts) {
 
-    /*Enable Backup access to config RTC*/
-	// PWR->CR |= PWR_CR_DBP;
-
-	// /*Disable RTC registers write protection*/
-	// RTC->WPR = 0xCA;
-	// RTC->WPR = 0x53;
-
-
-	// /*Start init mode*/
-	// RTC->ISR |= RTC_ISR_INIT;
-
-	// /*Wait until Initializing mode is active*/
-	// while((RTC->ISR & RTC_ISR_INITF) == 0);
-
     uint8_t ht = ts->hours / 10;
     uint8_t hu = ts->hours % 10;
     uint8_t mnt = ts->mins / 10;
@@ -106,13 +92,14 @@ void RTC_setTime(ts *ts) {
     uint8_t st = ts->secs / 10;
     uint8_t su = ts->secs % 10;
 
-    RTC->TR = 0;
-    RTC->TR |= ht << RTC_TR_HT_Pos;
-    RTC->TR |= hu << RTC_TR_HU_Pos;
-    RTC->TR |= mnt << RTC_TR_MNT_Pos;
-    RTC->TR |= mnu << RTC_TR_MNU_Pos;
-    RTC->TR |= st << RTC_TR_ST_Pos;
-    RTC->TR |= su << RTC_TR_SU_Pos;
+    uint32_t reg = 0;
+    reg |= ht << RTC_TR_HT_Pos;
+    reg |= hu << RTC_TR_HU_Pos;
+    reg |= mnt << RTC_TR_MNT_Pos;
+    reg |= mnu << RTC_TR_MNU_Pos;
+    reg |= st << RTC_TR_ST_Pos;
+    reg |= su << RTC_TR_SU_Pos;
+    RTC->TR = reg;
 
     uint8_t yt = (ts->year - 2000) / 10;
     uint8_t yu = (ts->year - 2000) % 10;
@@ -122,22 +109,15 @@ void RTC_setTime(ts *ts) {
     uint8_t dt = ts->date / 10;
     uint8_t du = ts->date % 10;
 
-    RTC->DR |= yt << RTC_DR_YT_Pos;
-    RTC->DR |= yu << RTC_DR_YU_Pos;
-    RTC->DR |= dayOfWk << RTC_DR_WDU_Pos;
-    RTC->DR |= mt << RTC_DR_MT_Pos;
-    RTC->DR |= mu << RTC_DR_MU_Pos;
-    RTC->DR |= dt << RTC_DR_DT_Pos;
-    RTC->DR |= du << RTC_DR_DU_Pos;
-
-    /*Exit the initialization mode*/
-	// RTC->ISR&=~RTC_ISR_INIT;
-
-	// /*Wait for synchronisation*/
-	// while((RTC->ISR & RTC_ISR_INITF) != 0);
-
-	// /*Enable RTC registers write protection*/
-	// RTC->WPR = 0xFF;
+    reg = 0;
+    reg |= yt << RTC_DR_YT_Pos;
+    reg |= yu << RTC_DR_YU_Pos;
+    reg |= dayOfWk << RTC_DR_WDU_Pos;
+    reg |= mt << RTC_DR_MT_Pos;
+    reg |= mu << RTC_DR_MU_Pos;
+    reg |= dt << RTC_DR_DT_Pos;
+    reg |= du << RTC_DR_DU_Pos;
+    RTC->DR = reg;
 }
 
 void RTC_getTime(ts *ts) {
@@ -162,7 +142,7 @@ void RTC_getTime(ts *ts) {
     uint8_t dt = (RTC->DR & RTC_DR_DT) >> RTC_DR_DT_Pos;
     uint8_t du = (RTC->DR & RTC_DR_DU) >> RTC_DR_DU_Pos;
 
-    ts->year = yt * 10 + yu;
+    ts->year = 2000 + yt * 10 + yu;
     ts->dayOfWk = dayOfWk;
     ts->month = mt * 10 + mu;
     ts->date = dt * 10 + du;
