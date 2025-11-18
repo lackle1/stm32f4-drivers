@@ -81,10 +81,10 @@ void CAT24C32_write(CAT24C32_t *cat24c32, uint16_t page, uint8_t *data, size_t s
     uint8_t addr[2];
     addr[0] = page >> 8;    // Higher byte
     addr[1] = page;         // Lower byte
-    cat24c32->i2c.write(&cat24c32->i2c, cat24c32->config.address, addr, 2, I2C_TRANSACTION_CONTINUE);
+    cat24c32->i2c.write(&cat24c32->i2c, addr, 2, I2C_TRANSACTION_CONTINUE);
 
     // Send the data we want to write
-    cat24c32->i2c.write(&cat24c32->i2c, cat24c32->config.address, data, size, I2C_TRANSACTION_STOP);
+    cat24c32->i2c.write(&cat24c32->i2c, data, size, I2C_TRANSACTION_STOP);
 }
 
 void CAT24C32_read(CAT24C32_t *cat24c32, uint16_t page, uint8_t *data, size_t size) {
@@ -95,7 +95,7 @@ void CAT24C32_read(CAT24C32_t *cat24c32, uint16_t page, uint8_t *data, size_t si
     uint8_t addr[2];
     addr[0] = page >> 8;    // Higher byte
     addr[1] = page;         // Lower byte
-    cat24c32->i2c.write(&cat24c32->i2c, cat24c32->config.address, addr, 2, I2C_TRANSACTION_STOP);
+    cat24c32->i2c.write(&cat24c32->i2c, addr, 2, I2C_TRANSACTION_STOP);
 
-    cat24c32->i2c.read(&cat24c32->i2c, cat24c32->config.address | 0x01, data, size);
+    cat24c32->i2c.read(&cat24c32->i2c, cat24c32->config.address | 0x01, data, size, I2C_TRANSACTION_STOP);
 }

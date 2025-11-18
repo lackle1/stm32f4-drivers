@@ -193,7 +193,7 @@ bool I2C_pollAck(I2C_t *i2c, uint8_t addr) {
  *  
  * @return @c NULL
  **/
-void I2C_write(I2C_t *i2c, uint8_t addr, uint8_t *data, uint8_t size, bool stop) {
+void I2C_write(I2C_t *i2c, uint8_t *data, uint8_t size, bool stop) {
 
     for (int i = 0; i < size; i++) {
         while (!(i2c->interface->SR1 & I2C_SR1_TXE));    // Wait for TxE bit to be set (data register empty)
@@ -217,16 +217,16 @@ void I2C_write(I2C_t *i2c, uint8_t addr, uint8_t *data, uint8_t size, bool stop)
  *  
  * @return @c NULL
  **/
-void I2C_read(I2C_t *i2c, uint8_t deviceAddr, uint8_t *buf, uint8_t size) {
+void I2C_read(I2C_t *i2c, uint8_t deviceAddr, uint8_t *buf, uint8_t size, bool stop) {
 
     I2C_start(i2c);
-    I2C_sendAddress(i2c, deviceAddr);     // LSB set to select read mode
-    
+    I2C_sendAddress(i2c, deviceAddr);
+
     if (size == 1) {
-        I2C_readByte(i2c, buf);
+        I2C_readByte(i2c, buf, stop);
     }
     else {
-        I2C_readBytes(i2c, buf, size);
+        I2C_readBytes(i2c, buf, size, stop);
     }
 }
 
@@ -238,7 +238,7 @@ void I2C_read(I2C_t *i2c, uint8_t deviceAddr, uint8_t *buf, uint8_t size) {
  *  
  * @return @c NULL
  **/
-void I2C_readByte(I2C_t *i2c, uint8_t *buf) {
+void I2C_readByte(I2C_t *i2c, uint8_t *buf, bool stop) {
 
     i2c->interface->CR1 &= ~(I2C_CR1_ACK);                     // Disable ACK
     i2c->interface->CR1 |= I2C_CR1_POS;                        // Set POS bit
@@ -258,7 +258,7 @@ void I2C_readByte(I2C_t *i2c, uint8_t *buf) {
  *  
  * @return @c NULL
  **/
-void I2C_readBytes(I2C_t *i2c, uint8_t *buf, uint8_t size) {
+void I2C_readBytes(I2C_t *i2c, uint8_t *buf, uint8_t size, bool stop) {
 
     for (int i = 0; i < size - 2; i++) {
         while (!(i2c->interface->SR1 & I2C_SR1_RXNE));         // Wait until RxNE is set (data register not empty)
@@ -271,7 +271,14 @@ void I2C_readBytes(I2C_t *i2c, uint8_t *buf, uint8_t size) {
     buf[size - 2] = i2c->interface->DR;
 
     i2c->interface->CR1 &= ~I2C_CR1_ACK;                       // Disable ACK
-    I2C_stop(i2c);
+
+    if (stop) {
+        I2C_stop(i2c);
+    }
+    else {
+        i2c->interface->CR1 |= I2C_CR1_START;                   // Set START bit. Function does other stuff, so don't use it
+    }
+    
 
     // Read last byte
     while (!(i2c->interface->SR1 & I2C_SR1_RXNE));             // Wait until RxNE is set (data register not empty)

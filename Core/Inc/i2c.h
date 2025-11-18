@@ -38,8 +38,8 @@ typedef struct I2C {
     I2C_TypeDef *interface;
     I2C_Config config;
     void (*updateConfig)(struct I2C *i2c, I2C_Config *config);
-    void (*write)(struct I2C *i2c, uint8_t addr, uint8_t *data, uint8_t size, bool stop);
-    void (*read)(struct I2C *i2c, uint8_t deviceAddr, uint8_t *buf, uint8_t size);
+    void (*write)(struct I2C *i2c, uint8_t *data, uint8_t size, bool stop);
+    void (*read)(struct I2C *i2c, uint8_t deviceAddr, uint8_t *buf, uint8_t size, bool stop);
 } I2C_t;
 
 I2C_t I2C_init(I2C_TypeDef *interface, I2C_Config *config);
@@ -51,10 +51,10 @@ bool I2C_pollAck(I2C_t *i2c, uint8_t addr);
 void I2C_sendAddress(I2C_t *i2c, uint8_t addr);
 void I2C_stop(I2C_t *i2c);
 
-void I2C_write(I2C_t *i2c, uint8_t addr, uint8_t *data, uint8_t size, bool stop);
+void I2C_write(I2C_t *i2c, uint8_t *data, uint8_t size, bool stop);
 
-void I2C_read(I2C_t *i2c, uint8_t deviceAddr, uint8_t *buf, uint8_t size);
-void I2C_readByte(I2C_t *i2c, uint8_t *buf);
-void I2C_readBytes(I2C_t *i2c, uint8_t *buf, uint8_t size);
+void I2C_read(I2C_t *i2c, uint8_t deviceAddr, uint8_t *buf, uint8_t size, bool stop);
+void I2C_readByte(I2C_t *i2c, uint8_t *buf, bool stop);
+void I2C_readBytes(I2C_t *i2c, uint8_t *buf, uint8_t size, bool stop);
 
 #endif
