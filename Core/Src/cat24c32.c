@@ -9,7 +9,7 @@
 #include "cat24c32.h"
 #include "i2c.h"
 
-// TODO: this is just temporary. Change it when this code gets put into Australis
+// TODO: this is just temporary while this code isn't integrated into Australis
 void initCAT24C32() {
 
     // Enable GPIO and I2C clocks
@@ -43,10 +43,12 @@ bool CAT24C32_init(CAT24C32_t *cat24c32, I2C_t *i2c, CAT24C32_Config *config) {
     cat24c32->write = CAT24C32_write;
     cat24c32->read = CAT24C32_read;
 
-    if (i2c != NULL)
+    if (i2c != NULL) {
         cat24c32->i2c = *i2c;
-    else
+    }
+    else {
         initialised = false;
+    }
 
     return initialised && cat24c32->updateConfig(cat24c32, config);
 }

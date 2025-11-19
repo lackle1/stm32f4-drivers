@@ -6,7 +6,15 @@
  ***********************************************************************************/
 
 #include "rtc.h"
+#include "stdbool.h"
 
+/**
+ * @brief  Initialises the RTC and sets the time
+ *
+ * @param  ts Pointer struct containing the current time
+ *
+ * @return @c NULL
+ **/
 void RTC_init(ts *ts) {
 
     /*  Enable RTC
@@ -52,8 +60,6 @@ void RTC_init(ts *ts) {
     * 4. Load initial time and date values in the shadow registers and configure time mode (12h or 24h)
     * 5. Exit initialisation mode
     * 6. Wait for synchronisation
-    * 
-    * May not be necessary:
     * 7. Enable write protection
     * 8. Disable backup access
     */
@@ -77,12 +83,19 @@ void RTC_init(ts *ts) {
     while((RTC->ISR & RTC_ISR_INITF) != 0);
 
     // Enable write protection
-    RTC->WPR = 1;   // Can be any value other than the keys
+    RTC->WPR = 0xFF;   // Can be any value other than the keys
 
     // Disable backup access
     PWR->CR &= ~PWR_CR_DBP;
 }
 
+/**
+ * @brief  Sets the time
+ *
+ * @param  ts Pointer struct containing the current time
+ *
+ * @return @c NULL
+ **/
 void RTC_setTime(ts *ts) {
 
     uint8_t ht = ts->hours / 10;
@@ -120,6 +133,13 @@ void RTC_setTime(ts *ts) {
     RTC->DR = reg;
 }
 
+/**
+ * @brief  Gets the time
+ *
+ * @param  ts Pointer struct where the time will be stored
+ *
+ * @return @c NULL
+ **/
 void RTC_getTime(ts *ts) {
     while ((RTC->ISR & RTC_ISR_RSF) == 0);
 
@@ -146,4 +166,62 @@ void RTC_getTime(ts *ts) {
     ts->dayOfWk = dayOfWk;
     ts->month = mt * 10 + mu;
     ts->date = dt * 10 + du;
+
+    RTC_checkDst(ts);
+}
+
+/**
+ * @brief  Checks if it is currently daylight savings or not and adjusts the time accordingly. However, if the hour is zero and daylight
+ *         savings has ended, the RTC won't be able to subtract one from the hour. In this case, it will just wait until the next time 
+ *         this function is called to try again.
+ *
+ * @param  ts Pointer struct containing the current time
+ *
+ * @return @c NULL
+ **/
+void RTC_checkDst(ts *ts) {
+    // Daylight savings starts on the first Sunday of October at 2am and ends on the first Sunday of April at 3am
+    bool isDst = (ts->month > 10)
+        || (ts->month == 10 && (ts->dayOfWk == Sunday || ts->date > 7) && ts->hours >= 2)
+        || (ts->month < 4)
+        || (ts->month == 4 && (ts->dayOfWk < Sunday && ts->date < 7) && ts->hours < 3);
+
+    ts->isDst = isDst;
+
+    // Check if the RTC is already set to DST
+    bool rtcSetToDst = (RTC->CR & RTC_CR_BKP) ? true : false;
+
+    if (rtcSetToDst == ts->isDst) {
+        //return;
+    }
+
+    // If DST is ending but we can't subtract an hour because the current hour is 0
+    if (!ts->isDst && ts->hours == 0) {
+        return;
+    }
+
+    // Enable write access to backup domain
+    PWR->CR |= PWR_CR_DBP;
+
+    // Unlock write protection
+    RTC->WPR = 0xCA;
+    RTC->WPR = 0x53;
+
+    if (ts->isDst) {
+        RTC->CR |= RTC_CR_ADD1H;
+        RTC->CR |= RTC_CR_BKP;
+    }
+    else {
+        RTC->CR |= RTC_CR_SUB1H;
+        RTC->CR &= ~RTC_CR_BKP;
+    }
+
+    // Enable write protection
+    RTC->WPR = 0xFF;   // Can be any value other than the keys
+
+    // Disable backup access
+    PWR->CR &= ~PWR_CR_DBP;
+
+    // Get updated time
+    RTC_getTime(ts);
 }

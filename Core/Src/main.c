@@ -137,12 +137,21 @@ int main(void)
   time.mins = 44;
   time.hours = 5;
   time.date = 17;
-  time.month = 10;
+  time.month = 1;
   time.year = 2025;
   time.dayOfWk = Friday;
   time.isDst = 1;
   RTC_init(&time);
   memset(&time, 0, sizeof(time));
+  RTC_getTime(&time);
+
+  RTC_checkDst(&time);
+  RTC_checkDst(&time);
+
+  time.month = 4;
+  time.dayOfWk = Sunday;
+  time.hours = 3;
+  RTC_checkDst(&time);
   /* USER CODE END 2 */
 
   /* Infinite loop */

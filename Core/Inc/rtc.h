@@ -31,5 +31,6 @@ typedef struct ts {
 void RTC_init(ts *ts);
 void RTC_setTime(ts *ts);
 void RTC_getTime(ts *ts);
+void RTC_checkDst(ts *ts);
 
 #endif
