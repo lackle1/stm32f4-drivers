@@ -6,7 +6,6 @@
  ***********************************************************************************/
 
 #include "rtc.h"
-#include "stdbool.h"
 
 /**
  * @brief  Initialises the RTC and sets the time
@@ -74,7 +73,7 @@ void RTC_init(ts *ts) {
 
     // Load initial time and date values in the shadow registers and configure time mode (12h or 24h)
     RTC->CR &= ~RTC_CR_FMT;     // Set to 24h format (0 is the reset value anyway, but doing this just in case)
-    RTC_setTime(ts);
+    _RTC_setTime(ts);
 
     // Exit initialisation mode
     RTC->ISR &= ~RTC_ISR_INIT;
@@ -96,7 +95,7 @@ void RTC_init(ts *ts) {
  *
  * @return @c NULL
  **/
-void RTC_setTime(ts *ts) {
+void _RTC_setTime(ts *ts) {
 
     uint8_t ht = ts->hours / 10;
     uint8_t hu = ts->hours % 10;
@@ -131,10 +130,17 @@ void RTC_setTime(ts *ts) {
     reg |= dt << RTC_DR_DT_Pos;
     reg |= du << RTC_DR_DU_Pos;
     RTC->DR = reg;
+
+    if (ts->isDst) {
+        RTC->CR |= RTC_CR_BKP;
+    }
+    else {
+        RTC->CR &= ~RTC_CR_BKP;
+    }
 }
 
 /**
- * @brief  Gets the time
+ * @brief   Gets the time
  *
  * @param  ts Pointer struct where the time will be stored
  *
@@ -166,39 +172,71 @@ void RTC_getTime(ts *ts) {
     ts->dayOfWk = dayOfWk;
     ts->month = mt * 10 + mu;
     ts->date = dt * 10 + du;
-
-    RTC_checkDst(ts);
 }
 
 /**
- * @brief  Checks if it is currently daylight savings or not and adjusts the time accordingly. However, if the hour is zero and daylight
- *         savings has ended, the RTC won't be able to subtract one from the hour. In this case, it will just wait until the next time 
- *         this function is called to try again.
+ * @brief  Checks if it is currently daylight savings time or not
+ *
+ * @param  ts Pointer struct containing the current time
+ *
+ * @return true if it is currently DST, false if not
+ **/
+bool _RTC_checkDst(ts *ts) {
+
+    // Australian daylight savings starts on the first Sunday of October at 2am and ends on the first Sunday of April at 3am
+
+    if (ts->month < 4 || ts->month > 10) {
+        return true;
+    }
+    else if (ts->month == 10) {
+        if (ts->date > 7 || ts->dayOfWk < ts->date) {
+            return true;
+        }
+        else if (ts->dayOfWk == Sunday && ts->hours >= 2) {
+            return true;
+        }
+    }
+    else if (ts->month == 4) {
+        if (ts->dayOfWk != Sunday && ts->date < 7 && ts->dayOfWk >= ts->date) {
+            return true;
+        }
+        else if (ts->dayOfWk == Sunday && ts->hours < 3) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * @brief   Checks if it is currently daylight savings or not and adjusts the time accordingly. However, any adjustments will not take effect until the next second.
+ * @details Also note: If the hour is zero and daylight savings has ended, the RTC won't be able to subtract one from the hour. In this case, it will just wait
+ *          until the next time this function is called to try again.
+ *          
  *
  * @param  ts Pointer struct containing the current time
  *
  * @return @c NULL
  **/
-void RTC_checkDst(ts *ts) {
-    // Daylight savings starts on the first Sunday of October at 2am and ends on the first Sunday of April at 3am
-    bool isDst = (ts->month > 10)
-        || (ts->month == 10 && (ts->dayOfWk == Sunday || ts->date > 7) && ts->hours >= 2)
-        || (ts->month < 4)
-        || (ts->month == 4 && (ts->dayOfWk < Sunday && ts->date < 7) && ts->hours < 3);
+void RTC_adjustForDst(ts *ts) {
 
-    ts->isDst = isDst;
+    bool isDst = _RTC_checkDst(ts);
 
-    // Check if the RTC is already set to DST
-    bool rtcSetToDst = (RTC->CR & RTC_CR_BKP) ? true : false;
-
-    if (rtcSetToDst == ts->isDst) {
-        //return;
+    if (ts->isDst == isDst) {
+        return;
     }
-
+    
     // If DST is ending but we can't subtract an hour because the current hour is 0
     if (!ts->isDst && ts->hours == 0) {
         return;
     }
+    
+    // Cannot enter daylight savings after 2am on the first Sunday of April
+    if (isDst && ts->month == 4 && ts->date <= 7 && ts->dayOfWk == Sunday && ts->hours == 2) {
+        return;
+    }
+    
+    ts->isDst = isDst;
 
     // Enable write access to backup domain
     PWR->CR |= PWR_CR_DBP;
@@ -207,6 +245,7 @@ void RTC_checkDst(ts *ts) {
     RTC->WPR = 0xCA;
     RTC->WPR = 0x53;
 
+    // ADD1H and SUB1H operations are only effective in the next second
     if (ts->isDst) {
         RTC->CR |= RTC_CR_ADD1H;
         RTC->CR |= RTC_CR_BKP;
@@ -221,7 +260,4 @@ void RTC_checkDst(ts *ts) {
 
     // Disable backup access
     PWR->CR &= ~PWR_CR_DBP;
-
-    // Get updated time
-    RTC_getTime(ts);
 }

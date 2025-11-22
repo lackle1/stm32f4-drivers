@@ -2,6 +2,7 @@
 #define RTC_H
 
 #include "stm32f439xx.h"
+#include "stdbool.h"
 
 #define RTC_WRITE_PROTECTION_UNLOCK_1 0xCAU
 #define RTC_WRITE_PROTECTION_UNLOCK_2 0x53U
@@ -29,8 +30,7 @@ typedef struct ts {
 } ts;
 
 void RTC_init(ts *ts);
-void RTC_setTime(ts *ts);
 void RTC_getTime(ts *ts);
-void RTC_checkDst(ts *ts);
+void RTC_adjustForDst(ts *ts);
 
 #endif

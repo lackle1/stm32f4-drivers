@@ -133,42 +133,35 @@ int main(void)
   CAT24C32_read(&cat24c32, 0, more_data, 8);
 
   ts time;
-  time.secs = 0;
-  time.mins = 44;
-  time.hours = 5;
-  time.date = 17;
-  time.month = 1;
+
+  time.secs = 55;
+  time.mins = 59;
+  time.hours = 2;
+  time.date = 6;
+  time.month = 4;
   time.year = 2025;
-  time.dayOfWk = Friday;
+  time.dayOfWk = Sunday;
   time.isDst = 1;
   RTC_init(&time);
-  memset(&time, 0, sizeof(time));
-  RTC_getTime(&time);
 
-  RTC_checkDst(&time);
-  RTC_checkDst(&time);
+  RTC_adjustForDst(&time);
+  RTC_getTime(&time);       // Returns wrong time
+  HAL_Delay(2000);
+  RTC_getTime(&time);       // Returns correct time
 
-  time.month = 4;
-  time.dayOfWk = Sunday;
-  time.hours = 3;
-  RTC_checkDst(&time);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  //uint8_t seconds = time.secs;
   while (1)
   {
-    RTC_getTime(&time);
-    HAL_Delay(500);
-    if (1) {
-      //HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
-      //seconds = time.secs;
-    }
+    // HAL_Delay(1000);
+    // HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
     
     /* USER CODE END WHILE */
-    /* USER CODE BEGIN 3 */
   }
+
+  /* USER CODE BEGIN 3 */
   /* USER CODE END 3 */
 }
 
