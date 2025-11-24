@@ -9,6 +9,8 @@
 #include "cat24c32.h"
 #include "i2c.h"
 
+#include "string.h"
+
 // TODO: this is just temporary while this code isn't integrated into Australis
 void initCAT24C32() {
 
@@ -41,6 +43,7 @@ bool CAT24C32_init(CAT24C32_t *cat24c32, I2C_t *i2c, CAT24C32_Config *config) {
 
     cat24c32->updateConfig = CAT24C32_updateConfig;
     cat24c32->write = CAT24C32_write;
+    cat24c32->write32 = CAT24C32_write32;
     cat24c32->read = CAT24C32_read;
 
     if (i2c != NULL) {
@@ -80,7 +83,7 @@ void CAT24C32_write(CAT24C32_t *cat24c32, uint16_t page, uint8_t *data, size_t s
     size_t offset = 0;
 
     while (offset < size) {
-        size_t writeSize = (offset - size > CAT24C32_MAX_WRITE_SIZE) ? CAT24C32_MAX_WRITE_SIZE : offset - size;
+        size_t writeSize = (size - offset > CAT24C32_MAX_WRITE_SIZE) ? CAT24C32_MAX_WRITE_SIZE : size - offset;
         CAT24C32_write32(cat24c32, page + offset, data + offset, writeSize);
         offset += writeSize;
     }
@@ -126,7 +129,7 @@ void CAT24C32_erase(CAT24C32_t *cat24c32) {
     uint8_t data[CAT24C32_MAX_WRITE_SIZE];
     memset(data, 0, CAT24C32_MAX_WRITE_SIZE);
 
-    for (uint16_t offset = 0; offset += CAT24C32_MAX_WRITE_SIZE; offset < CAT24C32_STORAGE_CAPACITY) {
+    for (uint16_t offset = 0; offset < CAT24C32_STORAGE_CAPACITY; offset += CAT24C32_MAX_WRITE_SIZE) {
         CAT24C32_write32(cat24c32, offset, data, CAT24C32_MAX_WRITE_SIZE);
     }
 }
