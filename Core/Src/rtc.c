@@ -6,11 +6,14 @@
  ***********************************************************************************/
 
 #include "rtc.h"
+#include "stdlib.h"
+
+void _RTC_setTime(ts *ts);
 
 /**
  * @brief  Initialises the RTC and sets the time
  *
- * @param  ts Pointer struct containing the current time
+ * @param  ts Pointer struct containing the desired time. Pass in \c NULL to keep the current time.
  *
  * @return @c NULL
  **/
@@ -68,12 +71,14 @@ void RTC_init(ts *ts) {
     while ((RTC->ISR & RTC_ISR_INITF) == 0);
 
     // Set sync prescaler then async prescaler (manual specifically says in this order)
-    RTC->PRER |= 255 << RTC_PRER_PREDIV_S_Pos;
-    RTC->PRER |= 127 << RTC_PRER_PREDIV_A_Pos;
+    RTC->PRER |= RTC_PREDIV_S << RTC_PRER_PREDIV_S_Pos;
+    RTC->PRER |= RTC_PREDIV_A << RTC_PRER_PREDIV_A_Pos;
 
     // Load initial time and date values in the shadow registers and configure time mode (12h or 24h)
     RTC->CR &= ~RTC_CR_FMT;     // Set to 24h format (0 is the reset value anyway, but doing this just in case)
-    _RTC_setTime(ts);
+    if (ts != NULL) {
+        _RTC_setTime(ts);
+    }
 
     // Exit initialisation mode
     RTC->ISR &= ~RTC_ISR_INIT;
@@ -149,6 +154,9 @@ void _RTC_setTime(ts *ts) {
 void RTC_getTime(ts *ts) {
     while ((RTC->ISR & RTC_ISR_RSF) == 0);
 
+    uint16_t subSecs = (RTC->SSR & RTC_SSR_SS) >> RTC_SSR_SS_Pos;
+    ts->subSecs = (RTC_PREDIV_S - subSecs) / (float)(RTC_PREDIV_S + 1);
+
     uint8_t ht = (RTC->TR & RTC_TR_HT) >> RTC_TR_HT_Pos;
     uint8_t hu = (RTC->TR & RTC_TR_HU) >> RTC_TR_HU_Pos;
     uint8_t mnt = (RTC->TR & RTC_TR_MNT) >> RTC_TR_MNT_Pos;
@@ -172,6 +180,8 @@ void RTC_getTime(ts *ts) {
     ts->dayOfWk = dayOfWk;
     ts->month = mt * 10 + mu;
     ts->date = dt * 10 + du;
+
+    ts->isDst = (RTC->CR & RTC_CR_BKP) ? 1 : 0;
 }
 
 /**
@@ -231,7 +241,8 @@ void RTC_adjustForDst(ts *ts) {
         return;
     }
     
-    // Cannot enter daylight savings after 2am on the first Sunday of April
+    // Cannot enter daylight savings after 2am on the first Sunday of April. This only has an effect when this function hasn't
+    // been called since non-DST period, or the clock has just been turned back an hour from 3am on the day DST ends.
     if (isDst && ts->month == 4 && ts->date <= 7 && ts->dayOfWk == Sunday && ts->hours == 2) {
         return;
     }

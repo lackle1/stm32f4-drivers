@@ -7,6 +7,9 @@
 #define RTC_WRITE_PROTECTION_UNLOCK_1 0xCAU
 #define RTC_WRITE_PROTECTION_UNLOCK_2 0x53U
 
+#define RTC_PREDIV_S                  255
+#define RTC_PREDIV_A                  127
+
 enum DoW {
     Monday      = 1,
     Tuesday     = 2,
@@ -18,14 +21,15 @@ enum DoW {
 };
 
 typedef struct ts {
-    uint8_t secs;
-    uint8_t mins;
-    uint8_t hours;
-    uint8_t date;       // day of month
-    uint8_t month;
+    float subSecs;
+    uint8_t  secs;
+    uint8_t  mins;
+    uint8_t  hours;
+    uint8_t  date;       // day of month
+    uint8_t  month;
     uint16_t year;
-    uint8_t dayOfWk;        // day name
-    uint8_t isDst;
+    uint8_t  dayOfWk;    // day name
+    uint8_t  isDst;
 
 } ts;
 
