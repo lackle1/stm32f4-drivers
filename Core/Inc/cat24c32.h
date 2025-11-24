@@ -10,8 +10,11 @@
 
 #define CAT24C32_ADDRESS  0xA0 
 
-#define PAGE_NUM        4096
-#define PAGE_SIZE       1           // Counted in bytes
+#define CAT24C32_STORAGE_CAPACITY 4096
+#define CAT24C32_PAGE_NUM         4096
+#define CAT24C32_PAGE_SIZE        1           // Counted in bytes
+
+#define CAT24C32_MAX_WRITE_SIZE   32
 
 typedef struct {
 
@@ -35,6 +38,8 @@ void initCAT24C32();
 bool CAT24C32_init(CAT24C32_t *cat24c32, I2C_t *i2c, CAT24C32_Config *config);
 bool CAT24C32_updateConfig(CAT24C32_t *cat24c32, CAT24C32_Config *config);
 void CAT24C32_write(CAT24C32_t *cat24c32, uint16_t page, uint8_t *data, size_t size);
+void CAT24C32_write32(CAT24C32_t *cat24c32, uint16_t page, uint8_t *data, size_t size);
 void CAT24C32_read(CAT24C32_t *cat24c32, uint16_t page, uint8_t *data, size_t size);
+void CAT24C32_erase(CAT24C32_t *cat24c32);
 
 #endif

@@ -67,6 +67,26 @@ bool CAT24C32_updateConfig(CAT24C32_t *cat24c32, CAT24C32_Config *config) {
 }
 
 /**
+ * @brief  Can write more than 32 bytes of data to the CAT24C32 device
+ *
+ * @param  page Start page
+ * @param  data Data to be written
+ * @param  size Number of bytes to be written
+ *
+ * @return @c NULL
+ **/
+void CAT24C32_write(CAT24C32_t *cat24c32, uint16_t page, uint8_t *data, size_t size) {
+
+    size_t offset = 0;
+
+    while (offset < size) {
+        size_t writeSize = (offset - size > CAT24C32_MAX_WRITE_SIZE) ? CAT24C32_MAX_WRITE_SIZE : offset - size;
+        CAT24C32_write32(cat24c32, page + offset, data + offset, writeSize);
+        offset += writeSize;
+    }
+}
+
+/**
  * @brief  Writes up to 32 bytes of data to the CAT24C32 device
  *
  * @param  page Start page
@@ -75,7 +95,7 @@ bool CAT24C32_updateConfig(CAT24C32_t *cat24c32, CAT24C32_Config *config) {
  *
  * @return @c NULL
  **/
-void CAT24C32_write(CAT24C32_t *cat24c32, uint16_t page, uint8_t *data, size_t size) {
+void CAT24C32_write32(CAT24C32_t *cat24c32, uint16_t page, uint8_t *data, size_t size) {
 
     while (!(I2C_pollAck(&cat24c32->i2c, cat24c32->config.address & 0xFE)));     // LSB cleared to select write mode
 
@@ -100,4 +120,13 @@ void CAT24C32_read(CAT24C32_t *cat24c32, uint16_t page, uint8_t *data, size_t si
     cat24c32->i2c.write(&cat24c32->i2c, addr, 2, I2C_TRANSACTION_STOP);
 
     cat24c32->i2c.read(&cat24c32->i2c, cat24c32->config.address | 0x01, data, size, I2C_TRANSACTION_STOP);
+}
+
+void CAT24C32_erase(CAT24C32_t *cat24c32) {
+    uint8_t data[CAT24C32_MAX_WRITE_SIZE];
+    memset(data, 0, CAT24C32_MAX_WRITE_SIZE);
+
+    for (uint16_t offset = 0; offset += CAT24C32_MAX_WRITE_SIZE; offset < CAT24C32_STORAGE_CAPACITY) {
+        CAT24C32_write32(cat24c32, offset, data, CAT24C32_MAX_WRITE_SIZE);
+    }
 }
