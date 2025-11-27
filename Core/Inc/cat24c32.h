@@ -32,6 +32,7 @@ typedef struct CAT24C32 {
     void (*write)(struct CAT24C32 *cat24c32, uint16_t page, uint8_t *data, size_t size);
     void (*write32)(struct CAT24C32 *cat24c32, uint16_t page, uint8_t *data, size_t size);
     void (*read)(struct CAT24C32 *cat24c32, uint16_t page, uint8_t *data, size_t size);
+    void (*erase)(struct CAT24C32 *cat24c32);
 } CAT24C32_t;
 
 void initCAT24C32();

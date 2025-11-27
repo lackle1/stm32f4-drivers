@@ -45,6 +45,7 @@ bool CAT24C32_init(CAT24C32_t *cat24c32, I2C_t *i2c, CAT24C32_Config *config) {
     cat24c32->write = CAT24C32_write;
     cat24c32->write32 = CAT24C32_write32;
     cat24c32->read = CAT24C32_read;
+    cat24c32->erase = CAT24C32_erase;
 
     if (i2c != NULL) {
         cat24c32->i2c = *i2c;
