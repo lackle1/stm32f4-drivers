@@ -8,6 +8,7 @@
 #include "rtc.h"
 #include "stdlib.h"
 
+void _RTC_reset();
 void _RTC_setTime(ts *ts);
 
 /**
@@ -36,6 +37,8 @@ void RTC_init(ts *ts) {
     __ASM("NOP");
     __ASM("NOP");
     __ASM("NOP");
+
+    _RTC_reset();
 
     // Enable write access to backup domain
     PWR->CR |= PWR_CR_DBP;
@@ -91,6 +94,17 @@ void RTC_init(ts *ts) {
 
     // Disable backup access
     PWR->CR &= ~PWR_CR_DBP;
+}
+
+/**
+ * @brief  Performs a backup domain reset
+ *
+ * @return @c NULL
+ **/
+void _RTC_reset() {
+    PWR->CR |= PWR_CR_DBP;
+    RCC->BDCR |= RCC_BDCR_BDRST;
+    RCC->BDCR &= ~RCC_BDCR_BDRST;
 }
 
 /**
